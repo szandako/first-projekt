@@ -138,7 +138,7 @@ export const usePosts = (feedId: string | undefined) => {
       for (let i = 0; i < reorderedPosts.length; i++) {
         const { error } = await supabase
           .from('posts')
-          .update({ position: i, updated_at: new Date().toISOString() })
+          .update({ position: reorderedPosts[i].position, updated_at: new Date().toISOString() })
           .eq('id', reorderedPosts[i].id);
 
         if (error) {
@@ -148,11 +148,7 @@ export const usePosts = (feedId: string | undefined) => {
       }
 
       // Update local state
-      const finalPosts = reorderedPosts.map((post, index) => ({
-        ...post,
-        position: index,
-      }));
-      setPosts(finalPosts);
+      setPosts(reorderedPosts);
     } catch (err: any) {
       console.error('Error reordering posts:', err);
       throw err;

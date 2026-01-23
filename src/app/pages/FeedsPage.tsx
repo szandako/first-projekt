@@ -118,7 +118,7 @@ export const FeedsPage: React.FC = () => {
           ) : ownedFeeds.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed border-stone-200 rounded-lg">
               <p className="text-stone-600 mb-4">
-                Még nincs egy feedned sem
+                Még nincs egy feeded sem
               </p>
               <button
                 onClick={handleCreateFeed}

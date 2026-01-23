@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -24,14 +24,11 @@ function FeedEditorPage() {
   const [draggedPostId, setDraggedPostId] = useState<string | null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [hoverProgress, setHoverProgress] = useState<{ [key: string]: number }>({});
-  const [hoveredPostId, setHoveredPostId] = useState<string | null>(null);
   const [postThumbnails, setPostThumbnails] = useState<{ [postId: string]: string }>({});
   const [feedName, setFeedName] = useState<string>('');
+  const [isSharedFeed, setIsSharedFeed] = useState(false);
 
-  const hoverTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
-
-  // Load feed name
+  // Load feed name and check if shared
   useEffect(() => {
     const loadFeedName = async () => {
       if (!feedId) return;
@@ -39,12 +36,13 @@ function FeedEditorPage() {
       try {
         const { data, error } = await supabase
           .from('feeds')
-          .select('name')
+          .select('name, owner_id')
           .eq('id', feedId)
           .single();
 
         if (!error && data) {
           setFeedName(data.name);
+          setIsSharedFeed(data.owner_id !== user?.id);
         }
       } catch (err) {
         console.error('Error loading feed name:', err);
@@ -52,7 +50,7 @@ function FeedEditorPage() {
     };
 
     loadFeedName();
-  }, [feedId]);
+  }, [feedId, user?.id]);
 
   // Load first image thumbnail for each post
   useEffect(() => {
@@ -90,57 +88,23 @@ function FeedEditorPage() {
 
   const handleCreateEmptyPost = async () => {
     try {
-      const newPosition = posts.length;
-      await createPost(newPosition);
-      toast.success('Új poszt létrehozva!');
+      // Shift all existing posts down by 1 position
+      if (posts.length > 0) {
+        const reordered = posts.map((post, index) => ({
+          ...post,
+          position: index + 1,
+        }));
+        await reorderPosts(reordered);
+      }
+
+      // Create new post at position 0 (beginning)
+      await createPost(0);
+      toast.success('Új poszt létrehozva az elején!');
     } catch (error: any) {
       console.error('Error creating post:', error);
       toast.error('Hiba történt a poszt létrehozásakor');
     }
   };
-
-  const handleMouseEnter = useCallback((id: string) => {
-    const post = posts.find((p) => p.id === id);
-    if (!post) return;
-
-    setHoveredPostId(id);
-
-    // Start progress animation
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 3.33;
-      setHoverProgress((prev) => ({ ...prev, [id]: Math.min(progress, 100) }));
-
-      if (progress >= 100) {
-        clearInterval(interval);
-        // Open modal when progress reaches 100%
-        handleEditPost(id);
-        // Reset progress
-        setHoverProgress((prev) => {
-          const newProgress = { ...prev };
-          delete newProgress[id];
-          return newProgress;
-        });
-      }
-    }, 100);
-
-    hoverTimers.current[id] = interval;
-  }, [posts]);
-
-  const handleMouseLeave = useCallback((id: string) => {
-    setHoveredPostId(null);
-
-    // Clear timer and reset progress
-    if (hoverTimers.current[id]) {
-      clearInterval(hoverTimers.current[id]);
-      delete hoverTimers.current[id];
-    }
-    setHoverProgress((prev) => {
-      const newProgress = { ...prev };
-      delete newProgress[id];
-      return newProgress;
-    });
-  }, []);
 
   const handleSwapPosts = useCallback(async (dragId: string, dropId: string) => {
     console.log(`🔄 Swapping posts: ${dragId} <-> ${dropId}`);
@@ -245,17 +209,27 @@ function FeedEditorPage() {
                 </div>
 
                 {/* Share Button */}
-                <button
-                  onClick={() => setShareModalOpen(true)}
-                  className="px-3 sm:px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors flex items-center gap-2"
-                  title="Feed megosztása"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span className="hidden lg:inline">Megosztás</span>
-                </button>
+                {!isSharedFeed && (
+                  <button
+                    onClick={() => setShareModalOpen(true)}
+                    className="px-3 sm:px-4 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors flex items-center gap-2"
+                    title="Feed megosztása"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span className="hidden lg:inline">Megosztás</span>
+                  </button>
+                )}
+
+                {/* Shared Feed Badge */}
+                {isSharedFeed && (
+                  <div className="px-3 sm:px-4 py-2 bg-amber-100 text-amber-800 rounded-lg flex items-center gap-2 text-sm font-medium">
+                    <Eye className="w-4 h-4" />
+                    <span className="hidden lg:inline">Megosztott feed</span>
+                  </div>
+                )}
 
                 {/* Clear All Button */}
-                {filledCount > 0 && (
+                {!isSharedFeed && filledCount > 0 && (
                   <button
                     onClick={handleClearAll}
                     className="px-3 sm:px-4 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg transition-colors flex items-center gap-2"
@@ -274,33 +248,40 @@ function FeedEditorPage() {
           {/* Instructions */}
           <div className="mb-8 p-6 bg-white rounded-lg border border-stone-200 shadow-sm">
             <h2 className="text-lg font-semibold mb-3 text-stone-900">
-              🎯 Használati útmutató
+              {isSharedFeed ? '👁 Megosztott Feed' : '🎯 Használati útmutató'}
             </h2>
-            <ul className="space-y-2 text-stone-700">
-              <li>
-                <strong>1.</strong> Kattints egy poszthoz képek hozzáadásához (több kép is lehetséges!)
-              </li>
-              <li>
-                <strong>2.</strong> Tartsd az egeret egy poszt felett <strong>3 másodpercig</strong> a
-                caption és időzítés szerkesztéséhez
-              </li>
-              <li>
-                <strong>3.</strong> Húzd a posztokat egymásra a sorrend megváltoztatásához
-              </li>
-            </ul>
+            {isSharedFeed ? (
+              <p className="text-stone-700">
+                Ez a feed meg lett veled osztva. Megtekintheted a posztokat és kommenteket írhatsz, de nem szerkesztheted őket.
+              </p>
+            ) : (
+              <ul className="space-y-2 text-stone-700">
+                <li>
+                  <strong>1.</strong> Kattints egy poszthoz képek hozzáadásához és szerkesztéshez (több kép is lehetséges!)
+                </li>
+                <li>
+                  <strong>2.</strong> Állítsd be a caption-t és az időzítést minden poszthoz
+                </li>
+                <li>
+                  <strong>3.</strong> Húzd a posztokat egymásra a sorrend megváltoztatásához
+                </li>
+              </ul>
+            )}
           </div>
 
           {/* Add Post & Preview Buttons */}
           <div className="mb-4 flex justify-center gap-3">
-            <button
-              onClick={handleCreateEmptyPost}
-              className="px-6 py-3 bg-white border-2 border-dashed border-stone-300 hover:border-stone-500 hover:bg-stone-50 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center gap-3 group"
-            >
-              <PlusCircle className="w-5 h-5 text-stone-400 group-hover:text-stone-700 transition-colors" />
-              <span className="font-medium text-stone-600 group-hover:text-stone-900 transition-colors">
-                Új poszt hozzáadása
-              </span>
-            </button>
+            {!isSharedFeed && (
+              <button
+                onClick={handleCreateEmptyPost}
+                className="px-6 py-3 bg-white border-2 border-dashed border-stone-300 hover:border-stone-500 hover:bg-stone-50 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center gap-3 group"
+              >
+                <PlusCircle className="w-5 h-5 text-stone-400 group-hover:text-stone-700 transition-colors" />
+                <span className="font-medium text-stone-600 group-hover:text-stone-900 transition-colors">
+                  Új poszt hozzáadása
+                </span>
+              </button>
+            )}
 
             {filledCount > 0 && (
               <button
@@ -318,13 +299,17 @@ function FeedEditorPage() {
             <PostGridSkeleton />
           ) : posts.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed border-stone-200 rounded-lg">
-              <p className="text-stone-600 mb-4">Még nincs egy posztod sem</p>
-              <button
-                onClick={handleCreateEmptyPost}
-                className="text-stone-800 font-semibold hover:underline"
-              >
-                Hozz létre egyet most!
-              </button>
+              <p className="text-stone-600 mb-4">
+                {isSharedFeed ? 'Ez a feed még üres' : 'Még nincs egy posztod sem'}
+              </p>
+              {!isSharedFeed && (
+                <button
+                  onClick={handleCreateEmptyPost}
+                  className="text-stone-800 font-semibold hover:underline"
+                >
+                  Hozz létre egyet most!
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-0.5 mb-16">
@@ -332,21 +317,25 @@ function FeedEditorPage() {
                 <div
                   key={post.id}
                   className="aspect-[4/5] bg-stone-100 rounded-sm overflow-hidden relative group cursor-pointer"
-                  draggable={draggedPostId === null}
+                  draggable={!isSharedFeed && draggedPostId === null}
                   onDragStart={(e) => {
+                    if (isSharedFeed) return;
                     setDraggedPostId(post.id);
                     e.dataTransfer.effectAllowed = 'move';
                   }}
                   onDragEnd={() => {
+                    if (isSharedFeed) return;
                     setDraggedPostId(null);
                   }}
                   onDragOver={(e) => {
+                    if (isSharedFeed) return;
                     if (draggedPostId !== null && draggedPostId !== post.id) {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = 'move';
                     }
                   }}
                   onDrop={async (e) => {
+                    if (isSharedFeed) return;
                     e.preventDefault();
 
                     // Check if we're swapping posts (internal drag)
@@ -356,8 +345,6 @@ function FeedEditorPage() {
                       return;
                     }
                   }}
-                  onMouseEnter={() => handleMouseEnter(post.id)}
-                  onMouseLeave={() => handleMouseLeave(post.id)}
                   onClick={() => handleEditPost(post.id)}
                 >
                   {/* Drag indicator overlay */}
@@ -394,48 +381,19 @@ function FeedEditorPage() {
                     </div>
                   )}
 
-                  {/* Hover Progress Circle */}
-                  {hoverProgress[post.id] && hoverProgress[post.id] > 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 pointer-events-none z-30">
-                      <svg className="w-20 h-20 transform -rotate-90">
-                        <circle
-                          cx="40"
-                          cy="40"
-                          r="36"
-                          stroke="rgba(255, 255, 255, 0.2)"
-                          strokeWidth="4"
-                          fill="none"
-                        />
-                        <circle
-                          cx="40"
-                          cy="40"
-                          r="36"
-                          stroke="white"
-                          strokeWidth="4"
-                          fill="none"
-                          strokeDasharray={`${2 * Math.PI * 36}`}
-                          strokeDashoffset={`${2 * Math.PI * 36 * (1 - hoverProgress[post.id] / 100)}`}
-                          strokeLinecap="round"
-                          className="transition-all duration-100"
-                        />
-                      </svg>
-                      <div className="absolute text-white font-bold text-lg">
-                        {Math.round(hoverProgress[post.id])}%
-                      </div>
-                    </div>
-                  )}
-
                   {/* Delete Post Button - Top Right */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeletePost(post.id);
-                    }}
-                    className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg opacity-0 group-hover:opacity-100 pointer-events-auto"
-                    title="Poszt törlése"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  {!isSharedFeed && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePost(post.id);
+                      }}
+                      className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg opacity-0 group-hover:opacity-100 pointer-events-auto"
+                      title="Poszt törlése"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
 
                   {/* Status Indicators - Bottom Left */}
                   <div className="absolute bottom-2 left-2 flex flex-col gap-1 z-20 pointer-events-none">
@@ -492,7 +450,7 @@ function FeedEditorPage() {
                 toast.error('Hiba történt a mentés során');
               }
             }}
-            viewingSharedFeed={false}
+            viewingSharedFeed={isSharedFeed}
           />
         )}
 
@@ -502,6 +460,7 @@ function FeedEditorPage() {
           onClose={() => setPreviewModalOpen(false)}
           posts={posts.map((p) => ({
             id: p.position,
+            image: postThumbnails[p.id],
             caption: p.caption || undefined,
             scheduledTime: p.scheduled_time || undefined,
           }))}

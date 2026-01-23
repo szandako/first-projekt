@@ -136,7 +136,14 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-stone-200">
-              <h2 className="text-2xl font-semibold text-stone-900">Poszt Részletei</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-semibold text-stone-900">Poszt Részletei</h2>
+                {viewingSharedFeed && (
+                  <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
+                    Csak olvasható
+                  </span>
+                )}
+              </div>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
@@ -256,8 +263,9 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                       value={caption}
                       onChange={(e) => setCaption(e.target.value)}
                       placeholder="Írj egy caption-t a posztodhoz..."
-                      className="w-full h-32 px-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all resize-none"
+                      className="w-full h-32 px-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all resize-none disabled:bg-stone-50 disabled:text-stone-600 disabled:cursor-not-allowed"
                       maxLength={2200}
+                      disabled={viewingSharedFeed}
                     />
                     <div className="text-xs text-stone-500 text-right">
                       {(caption || '').length} / 2200 karakter
@@ -274,7 +282,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                       type="date"
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all"
+                      className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all disabled:bg-stone-50 disabled:text-stone-600 disabled:cursor-not-allowed"
+                      disabled={viewingSharedFeed}
                     />
                   </div>
 
@@ -288,7 +297,8 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                       type="time"
                       value={scheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all"
+                      className="w-full px-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all disabled:bg-stone-50 disabled:text-stone-600 disabled:cursor-not-allowed"
+                      disabled={viewingSharedFeed}
                     />
                   </div>
 
@@ -323,14 +333,16 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                 onClick={onClose}
                 className="px-6 py-2.5 text-stone-700 hover:bg-stone-200 rounded-lg transition-colors border border-stone-300"
               >
-                Mégse
+                {viewingSharedFeed ? 'Bezárás' : 'Mégse'}
               </button>
-              <button
-                onClick={handleSave}
-                className="px-6 py-2.5 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-all shadow-md hover:shadow-lg"
-              >
-                Mentés
-              </button>
+              {!viewingSharedFeed && (
+                <button
+                  onClick={handleSave}
+                  className="px-6 py-2.5 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-all shadow-md hover:shadow-lg"
+                >
+                  Mentés
+                </button>
+              )}
             </div>
           </motion.div>
         </motion.div>
