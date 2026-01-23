@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Calendar, Clock, MessageSquare, StickyNote } from 'lucide-react';
+import { X, Calendar, Clock, MessageSquare } from 'lucide-react';
 
 interface EditPostModalProps {
   isOpen: boolean;
@@ -8,9 +8,7 @@ interface EditPostModalProps {
   image?: string;
   caption?: string;
   scheduledTime?: string;
-  notes?: string;
-  onSave: (caption: string, scheduledTime: string, notes: string) => void;
-  viewingSharedFeed?: boolean;
+  onSave: (caption: string, scheduledTime: string) => void;
 }
 
 export const EditPostModal: React.FC<EditPostModalProps> = ({
@@ -19,19 +17,15 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   image,
   caption: initialCaption = '',
   scheduledTime: initialScheduledTime = '',
-  notes: initialNotes = '',
   onSave,
-  viewingSharedFeed,
 }) => {
   const [caption, setCaption] = useState(initialCaption || '');
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
-  const [notes, setNotes] = useState(initialNotes || '');
 
   useEffect(() => {
     setCaption(initialCaption || '');
-    setNotes(initialNotes || '');
-    
+
     if (initialScheduledTime) {
       const date = new Date(initialScheduledTime);
       const dateStr = date.toISOString().split('T')[0];
@@ -46,11 +40,11 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       setScheduledDate(dateStr);
       setScheduledTime(timeStr);
     }
-  }, [initialCaption, initialScheduledTime, initialNotes, isOpen]);
+  }, [initialCaption, initialScheduledTime, isOpen]);
 
   const handleSave = () => {
     const datetime = `${scheduledDate}T${scheduledTime}`;
-    onSave(caption, datetime, notes);
+    onSave(caption, datetime);
     onClose();
   };
 
@@ -171,24 +165,6 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                       </p>
                     </div>
                   )}
-
-                  {/* Notes */}
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
-                      <StickyNote className="w-4 h-4" />
-                      Jegyzetek
-                    </label>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Írj jegyzeteket a posztodhoz..."
-                      className="w-full h-32 px-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all resize-none"
-                      maxLength={2200}
-                    />
-                    <div className="text-xs text-stone-500 text-right">
-                      {(notes || '').length} / 2200 karakter
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
