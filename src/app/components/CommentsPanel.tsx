@@ -182,17 +182,17 @@ export const CommentsPanel: React.FC<CommentsPanelProps> = ({ postId, viewingSha
                         <div className="flex items-center gap-2 mt-3">
                           <button
                             onClick={() => handleStartEdit(comment.id, comment.content)}
-                            className="text-xs px-2 py-1 bg-stone-700 text-stone-200 rounded hover:bg-stone-600 transition-colors flex items-center gap-1"
+                            className="text-xs px-2.5 py-1.5 bg-stone-700 text-stone-200 rounded hover:bg-stone-600 transition-colors flex items-center gap-1 min-h-[32px]"
                           >
-                            <Edit2 className="w-3 h-3" />
-                            Szerkesztés
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Szerkesztés</span>
                           </button>
                           <button
                             onClick={() => handleDelete(comment.id)}
-                            className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1"
+                            className="text-xs px-2.5 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1 min-h-[32px]"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            Törlés
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Törlés</span>
                           </button>
                         </div>
                       )}
@@ -207,13 +207,13 @@ export const CommentsPanel: React.FC<CommentsPanelProps> = ({ postId, viewingSha
       </div>
 
       {/* New Comment Form */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-stone-200 bg-white rounded-b-lg">
+      <form onSubmit={handleSubmit} className="p-3 sm:p-4 border-t border-stone-200 bg-white rounded-b-lg">
         <div className="flex gap-2">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Írj egy kommentet..."
-            className="flex-1 px-3 py-2 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none resize-none text-sm"
+            className="flex-1 px-3 py-2.5 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none resize-none text-sm sm:text-base min-h-[44px]"
             rows={2}
             maxLength={5000}
             disabled={submitting}
@@ -221,10 +221,10 @@ export const CommentsPanel: React.FC<CommentsPanelProps> = ({ postId, viewingSha
           <button
             type="submit"
             disabled={!newComment.trim() || submitting}
-            className="px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 sm:gap-2 min-h-[44px] min-w-[44px] justify-center"
           >
             <Send className="w-4 h-4" />
-            {submitting ? 'Küldés...' : 'Küldés'}
+            <span className="hidden sm:inline">{submitting ? 'Küldés...' : 'Küldés'}</span>
           </button>
         </div>
         <div className="text-xs text-stone-500 mt-1 text-right">

@@ -1,8 +1,171 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DndProvider } from 'react-dnd';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { MultiBackend, TouchTransition } from 'react-dnd-multi-backend';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
+import { useIsMobile } from '../components/ui/use-mobile';
 import { useAuthContext } from '../../context/AuthContext';
+
+// HTML5 és Touch backend konfiguráció
+const HTML5toTouch = {
+  backends: [
+    {
+      id: 'html5',
+      backend: HTML5Backend,
+      transition: TouchTransition,
+    },
+    {
+      id: 'touch',
+      backend: TouchBackend,
+      options: {
+        enableMouseEvents: true,
+        delayTouchStart: 200, // 200ms hosszú nyomás a drag indításához
+      },
+      preview: true,
+      transition: TouchTransition,
+    },
+  ],
+};
+
+// Drag item típus
+const ItemTypes = {
+  POST: 'post',
+};
+
+// DraggablePost komponens
+interface DraggablePostProps {
+  post: {
+    id: string;
+    position: number;
+    caption: string | null;
+    scheduled_time: string | null;
+  };
+  thumbnail?: string;
+  isSharedFeed: boolean;
+  isMobile: boolean;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onSwap: (dragId: string, dropId: string) => void;
+}
+
+const DraggablePost: React.FC<DraggablePostProps> = ({
+  post,
+  thumbnail,
+  isSharedFeed,
+  isMobile,
+  onEdit,
+  onDelete,
+  onSwap,
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.POST,
+    item: { id: post.id },
+    canDrag: !isSharedFeed,
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  const [{ isOver, canDrop }, drop] = useDrop({
+    accept: ItemTypes.POST,
+    canDrop: () => !isSharedFeed,
+    drop: (item: { id: string }) => {
+      if (item.id !== post.id) {
+        onSwap(item.id, post.id);
+      }
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  });
+
+  // Kombináljuk a drag és drop ref-eket
+  drag(drop(ref));
+
+  return (
+    <div
+      ref={ref}
+      className={`aspect-[4/5] bg-stone-100 rounded-sm overflow-hidden relative group cursor-pointer transition-all ${
+        isDragging ? 'opacity-50 scale-95' : ''
+      } ${isOver && canDrop ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+      onClick={() => !isDragging && onEdit(post.id)}
+      style={{ touchAction: isSharedFeed ? 'auto' : 'none' }}
+    >
+      {/* Drop indicator overlay */}
+      {isOver && canDrop && (
+        <div className="absolute inset-0 bg-blue-500 bg-opacity-20 border-2 border-blue-500 border-dashed z-10 pointer-events-none flex items-center justify-center">
+          <div className="bg-white px-3 py-2 rounded-lg shadow-lg">
+            <span className="text-sm font-medium text-blue-700">Cseréld ide</span>
+          </div>
+        </div>
+      )}
+
+      {/* Image or placeholder */}
+      {thumbnail ? (
+        <img
+          src={thumbnail}
+          alt={`Post ${post.position + 1}`}
+          className="w-full h-full object-cover"
+          draggable={false}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-stone-400 bg-white">
+          <div className="text-center p-2">
+            <Upload className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-1 sm:mb-2" />
+            <p className="text-[10px] sm:text-xs">{isMobile ? 'Koppints' : 'Kattints'}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Post Button - Top Right */}
+      {!isSharedFeed && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(post.id);
+          }}
+          className="absolute top-1 sm:top-2 right-1 sm:right-2 z-20 p-1.5 sm:p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg sm:opacity-0 sm:group-hover:opacity-100 pointer-events-auto"
+          title="Poszt törlése"
+        >
+          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        </button>
+      )}
+
+      {/* Status Indicators - Bottom Left */}
+      <div className="absolute bottom-1 sm:bottom-2 left-1 sm:left-2 flex flex-col gap-0.5 sm:gap-1 z-20 pointer-events-none">
+        {/* Caption Status */}
+        {post.caption ? (
+          <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-emerald-500 text-white text-[10px] sm:text-xs font-semibold rounded shadow-lg">
+            <span className="hidden sm:inline">✓ Caption beállítva</span>
+            <span className="sm:hidden">✓ Caption</span>
+          </div>
+        ) : (
+          <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-red-500 text-white text-[10px] sm:text-xs font-semibold rounded shadow-lg">
+            <span className="hidden sm:inline">⚠ Caption hiányos</span>
+            <span className="sm:hidden">⚠ Caption</span>
+          </div>
+        )}
+
+        {/* Scheduled Time Status */}
+        {post.scheduled_time ? (
+          <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-emerald-500 text-white text-[10px] sm:text-xs font-semibold rounded shadow-lg">
+            <span className="hidden sm:inline">✓ Időzítve</span>
+            <span className="sm:hidden">✓ Időzítés</span>
+          </div>
+        ) : (
+          <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-orange-500 text-white text-[10px] sm:text-xs font-semibold rounded shadow-lg">
+            <span className="hidden sm:inline">⚠ Időzítés szükséges</span>
+            <span className="sm:hidden">⚠ Időzítés</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 import { usePosts } from '../../hooks/usePosts';
 import { supabase } from '../../lib/supabase/client';
 import { getImageUrl } from '../../lib/supabase/storage';
@@ -18,10 +181,10 @@ function FeedEditorPage() {
   const navigate = useNavigate();
   const { user } = useAuthContext();
   const { posts, loading, createPost, updatePost, deletePost, reorderPosts } = usePosts(feedId);
+  const isMobile = useIsMobile();
 
   const [editingPost, setEditingPost] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [draggedPostId, setDraggedPostId] = useState<string | null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [postThumbnails, setPostThumbnails] = useState<{ [postId: string]: string }>({});
@@ -171,7 +334,7 @@ function FeedEditorPage() {
   const filledCount = posts.length;
 
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider backend={MultiBackend} options={HTML5toTouch}>
       <div className="min-h-screen bg-stone-50">
         {/* Header */}
         <header className="bg-white border-b border-stone-200 sticky top-0 z-40 shadow-sm">
@@ -244,40 +407,40 @@ function FeedEditorPage() {
         </header>
 
         {/* Main content */}
-        <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <main className="max-w-7xl mx-auto px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
           {/* Instructions */}
-          <div className="mb-8 p-6 bg-white rounded-lg border border-stone-200 shadow-sm">
-            <h2 className="text-lg font-semibold mb-3 text-stone-900">
+          <div className="mb-4 sm:mb-8 p-4 sm:p-6 bg-white rounded-lg border border-stone-200 shadow-sm">
+            <h2 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-stone-900">
               {isSharedFeed ? '👁 Megosztott Feed' : '🎯 Használati útmutató'}
             </h2>
             {isSharedFeed ? (
-              <p className="text-stone-700">
+              <p className="text-sm sm:text-base text-stone-700">
                 Ez a feed meg lett veled osztva. Megtekintheted a posztokat és kommenteket írhatsz, de nem szerkesztheted őket.
               </p>
             ) : (
-              <ul className="space-y-2 text-stone-700">
+              <ul className="space-y-1.5 sm:space-y-2 text-sm sm:text-base text-stone-700">
                 <li>
-                  <strong>1.</strong> Kattints egy poszthoz képek hozzáadásához és szerkesztéshez (több kép is lehetséges!)
+                  <strong>1.</strong> {isMobile ? 'Koppints' : 'Kattints'} egy poszthoz képek hozzáadásához
                 </li>
                 <li>
-                  <strong>2.</strong> Állítsd be a caption-t és az időzítést minden poszthoz
+                  <strong>2.</strong> Állítsd be a caption-t és az időzítést
                 </li>
                 <li>
-                  <strong>3.</strong> Húzd a posztokat egymásra a sorrend megváltoztatásához
+                  <strong>3.</strong> {isMobile ? 'Tartsd lenyomva (~0.2 mp), majd húzd' : 'Húzd'} a posztokat a sorrend módosításához
                 </li>
               </ul>
             )}
           </div>
 
           {/* Add Post & Preview Buttons */}
-          <div className="mb-4 flex justify-center gap-3">
+          <div className="mb-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-3">
             {!isSharedFeed && (
               <button
                 onClick={handleCreateEmptyPost}
-                className="px-6 py-3 bg-white border-2 border-dashed border-stone-300 hover:border-stone-500 hover:bg-stone-50 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center gap-3 group"
+                className="px-4 sm:px-6 py-3 bg-white border-2 border-dashed border-stone-300 hover:border-stone-500 hover:bg-stone-50 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 sm:gap-3 group min-h-[48px]"
               >
                 <PlusCircle className="w-5 h-5 text-stone-400 group-hover:text-stone-700 transition-colors" />
-                <span className="font-medium text-stone-600 group-hover:text-stone-900 transition-colors">
+                <span className="font-medium text-stone-600 group-hover:text-stone-900 transition-colors text-sm sm:text-base">
                   Új poszt hozzáadása
                 </span>
               </button>
@@ -286,10 +449,10 @@ function FeedEditorPage() {
             {filledCount > 0 && (
               <button
                 onClick={() => setPreviewModalOpen(true)}
-                className="px-6 py-3 bg-gradient-to-r from-stone-700 to-stone-800 text-white rounded-lg hover:from-stone-800 hover:to-stone-900 transition-all shadow-sm hover:shadow-md flex items-center gap-3 group"
+                className="px-4 sm:px-6 py-3 bg-gradient-to-r from-stone-700 to-stone-800 text-white rounded-lg hover:from-stone-800 hover:to-stone-900 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 sm:gap-3 group min-h-[48px]"
               >
                 <Eye className="w-5 h-5" />
-                <span className="font-medium">Feed Előnézet</span>
+                <span className="font-medium text-sm sm:text-base">Feed Előnézet</span>
               </button>
             )}
           </div>
@@ -314,112 +477,16 @@ function FeedEditorPage() {
           ) : (
             <div className="grid grid-cols-3 gap-0.5 mb-16">
               {posts.map((post) => (
-                <div
+                <DraggablePost
                   key={post.id}
-                  className="aspect-[4/5] bg-stone-100 rounded-sm overflow-hidden relative group cursor-pointer"
-                  draggable={!isSharedFeed && draggedPostId === null}
-                  onDragStart={(e) => {
-                    if (isSharedFeed) return;
-                    setDraggedPostId(post.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onDragEnd={() => {
-                    if (isSharedFeed) return;
-                    setDraggedPostId(null);
-                  }}
-                  onDragOver={(e) => {
-                    if (isSharedFeed) return;
-                    if (draggedPostId !== null && draggedPostId !== post.id) {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = 'move';
-                    }
-                  }}
-                  onDrop={async (e) => {
-                    if (isSharedFeed) return;
-                    e.preventDefault();
-
-                    // Check if we're swapping posts (internal drag)
-                    if (draggedPostId !== null && draggedPostId !== post.id) {
-                      await handleSwapPosts(draggedPostId, post.id);
-                      setDraggedPostId(null);
-                      return;
-                    }
-                  }}
-                  onClick={() => handleEditPost(post.id)}
-                >
-                  {/* Drag indicator overlay */}
-                  {draggedPostId !== null && draggedPostId !== post.id && (
-                    <div className="absolute inset-0 bg-blue-500 bg-opacity-20 border-2 border-blue-500 border-dashed z-10 pointer-events-none flex items-center justify-center">
-                      <div className="bg-white px-3 py-2 rounded-lg shadow-lg">
-                        <span className="text-sm font-medium text-blue-700">Cseréld ide</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Currently dragging overlay */}
-                  {draggedPostId === post.id && (
-                    <div className="absolute inset-0 bg-stone-900 bg-opacity-50 z-20 pointer-events-none flex items-center justify-center">
-                      <div className="bg-white px-3 py-2 rounded-lg shadow-lg">
-                        <span className="text-sm font-medium text-stone-700">Húzd ide</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Image or placeholder */}
-                  {postThumbnails[post.id] ? (
-                    <img
-                      src={postThumbnails[post.id]}
-                      alt={`Post ${post.position + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-400 bg-white">
-                      <div className="text-center">
-                        <Upload className="w-8 h-8 mx-auto mb-2" />
-                        <p className="text-xs">Kattints a szerkesztéshez</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Delete Post Button - Top Right */}
-                  {!isSharedFeed && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeletePost(post.id);
-                      }}
-                      className="absolute top-2 right-2 z-20 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg opacity-0 group-hover:opacity-100 pointer-events-auto"
-                      title="Poszt törlése"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {/* Status Indicators - Bottom Left */}
-                  <div className="absolute bottom-2 left-2 flex flex-col gap-1 z-20 pointer-events-none">
-                    {/* Caption Status */}
-                    {post.caption ? (
-                      <div className="px-2 py-1 bg-emerald-500 text-white text-xs font-semibold rounded shadow-lg">
-                        ✓ Caption beállítva
-                      </div>
-                    ) : (
-                      <div className="px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded shadow-lg">
-                        ⚠ Caption hiányos
-                      </div>
-                    )}
-
-                    {/* Scheduled Time Status */}
-                    {post.scheduled_time ? (
-                      <div className="px-2 py-1 bg-emerald-500 text-white text-xs font-semibold rounded shadow-lg">
-                        ✓ Időzítve
-                      </div>
-                    ) : (
-                      <div className="px-2 py-1 bg-orange-500 text-white text-xs font-semibold rounded shadow-lg">
-                        ⚠ Időzítés szükséges
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  post={post}
+                  thumbnail={postThumbnails[post.id]}
+                  isSharedFeed={isSharedFeed}
+                  isMobile={isMobile}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
+                  onSwap={handleSwapPosts}
+                />
               ))}
             </div>
           )}

@@ -29,34 +29,34 @@ export const FeedPreviewModal: React.FC<FeedPreviewModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4"
           onClick={onClose}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
+            initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-stone-800 to-stone-700 text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Eye className="w-6 h-6" />
-                <h2 className="text-xl font-semibold">Feed Előnézet</h2>
+            <div className="bg-gradient-to-r from-stone-800 to-stone-700 text-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Eye className="w-5 h-5 sm:w-6 sm:h-6" />
+                <h2 className="text-base sm:text-xl font-semibold">Feed Előnézet</h2>
               </div>
               <button
                 onClick={onClose}
-                className="hover:bg-white/20 p-2 rounded-lg transition-colors"
+                className="hover:bg-white/20 p-2 rounded-lg transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Preview Grid */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)] bg-stone-50">
-              <div className="bg-white rounded-lg shadow-sm border border-stone-200 p-4">
-                <div className="grid grid-cols-3 gap-1">
+            <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(95vh-140px)] sm:max-h-[calc(90vh-80px)] bg-stone-50">
+              <div className="bg-white rounded-lg shadow-sm border border-stone-200 p-2 sm:p-4">
+                <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
                   {posts.map((post) => (
                     <div
                       key={post.id}
@@ -100,20 +100,20 @@ export const FeedPreviewModal: React.FC<FeedPreviewModalProps> = ({
               </div>
 
               {/* Info */}
-              <div className="mt-4 text-center text-sm text-stone-600">
+              <div className="mt-3 sm:mt-4 text-center text-xs sm:text-sm text-stone-600">
                 <p>
-                  Összesen <strong>{posts.filter(p => p.image).length}</strong> kép feltöltve,{' '}
+                  <strong>{posts.filter(p => p.image).length}</strong> kép,{' '}
                   <strong>{posts.filter(p => p.caption).length}</strong> caption,{' '}
-                  <strong>{posts.filter(p => p.scheduledTime).length}</strong> időzített poszt
+                  <strong>{posts.filter(p => p.scheduledTime).length}</strong> időzített
                 </p>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="bg-stone-50 px-6 py-4 border-t border-stone-200 flex justify-end">
+            <div className="bg-stone-50 px-4 sm:px-6 py-3 sm:py-4 border-t border-stone-200 flex justify-end">
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 transition-colors font-medium"
+                className="px-4 sm:px-6 py-2.5 bg-stone-800 text-white rounded-lg hover:bg-stone-700 transition-colors font-medium min-h-[44px] text-sm sm:text-base"
               >
                 Bezárás
               </button>

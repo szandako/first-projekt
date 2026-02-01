@@ -7,6 +7,21 @@ import {
   compressImage,
 } from '../lib/supabase/storage';
 
+// UUID generátor polyfill - működik minden böngészőben
+const generateUUID = (): string => {
+  // Ha elérhető a crypto.randomUUID (modern böngészők HTTPS-en)
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  // Fallback: kézi UUID generálás
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export interface PostImage {
   id: string;
   post_id: string;
@@ -81,7 +96,7 @@ export const usePostImages = (postId: string | undefined) => {
       const compressedFile = await compressImage(file);
 
       // Generate unique ID for the image
-      const imageId = crypto.randomUUID();
+      const imageId = generateUUID();
 
       // Upload to storage
       const storagePath = await uploadPostImage(

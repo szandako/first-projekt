@@ -93,14 +93,124 @@ export const deletePostImages = async (
 
 /**
  * Compress an image file
+ * Uses createImageBitmap for better mobile/HEIC support
  * @param file - The file to compress
  * @param maxSizeKB - Maximum size in KB (default: 500)
  * @returns Compressed file
  */
 export const compressImage = async (
   file: File,
-  maxSizeKB: number = 500
+  maxSizeKB: number = 300
 ): Promise<File> => {
+  // Ha a fájl már elég kicsi, ne tömörítsük
+  if (file.size / 1024 <= maxSizeKB) {
+    // De JPEG-re konvertáljuk ha lehetséges
+    try {
+      return await compressWithBitmap(file, maxSizeKB);
+    } catch {
+      // Ha nem sikerül, visszaadjuk az eredetit
+      return file;
+    }
+  }
+
+  try {
+    // Először próbáljuk createImageBitmap-pel (jobb HEIC támogatás)
+    return await compressWithBitmap(file, maxSizeKB);
+  } catch (bitmapError) {
+    console.warn('createImageBitmap failed, trying FileReader fallback:', bitmapError);
+
+    // Fallback: FileReader + Image
+    try {
+      return await compressWithFileReader(file, maxSizeKB);
+    } catch (readerError) {
+      console.warn('FileReader compression failed:', readerError);
+
+      // Ha minden kudarcot vall, visszaadjuk az eredetit
+      // (max 10MB limit a Supabase-nél alapból)
+      console.log('Returning original file without compression');
+      return file;
+    }
+  }
+};
+
+/**
+ * Compress using createImageBitmap (better mobile support)
+ */
+const compressWithBitmap = async (file: File, maxSizeKB: number): Promise<File> => {
+  // createImageBitmap jobb HEIC/HEIF támogatással rendelkezik
+  const bitmap = await createImageBitmap(file);
+
+  let width = bitmap.width;
+  let height = bitmap.height;
+
+  // Calculate new dimensions while maintaining aspect ratio
+  const maxDimension = 1920;
+  if (width > height && width > maxDimension) {
+    height = Math.round((height * maxDimension) / width);
+    width = maxDimension;
+  } else if (height > maxDimension) {
+    width = Math.round((width * maxDimension) / height);
+    height = maxDimension;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Failed to get canvas context');
+  }
+
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close(); // Felszabadítjuk a memóriát
+
+  // Try different quality levels to achieve target size
+  let quality = 0.9;
+
+  while (quality > 0.1) {
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', quality);
+    });
+
+    if (!blob) {
+      throw new Error('Failed to create blob');
+    }
+
+    const sizeKB = blob.size / 1024;
+
+    if (sizeKB <= maxSizeKB || quality <= 0.1) {
+      // Fájlnév kiterjesztését cseréljük .jpg-re
+      const newName = file.name.replace(/\.[^.]+$/, '.jpg');
+      return new File([blob], newName, {
+        type: 'image/jpeg',
+        lastModified: Date.now(),
+      });
+    }
+
+    quality -= 0.1;
+  }
+
+  // Ha idáig jutottunk, használjuk a legalacsonyabb minőséget
+  const finalBlob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, 'image/jpeg', 0.1);
+  });
+
+  if (!finalBlob) {
+    throw new Error('Failed to create final blob');
+  }
+
+  const newName = file.name.replace(/\.[^.]+$/, '.jpg');
+  return new File([finalBlob], newName, {
+    type: 'image/jpeg',
+    lastModified: Date.now(),
+  });
+};
+
+/**
+ * Fallback: compress using FileReader + Image element
+ */
+const compressWithFileReader = (file: File, maxSizeKB: number): Promise<File> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -147,7 +257,8 @@ export const compressImage = async (
 
               if (sizeKB <= maxSizeKB || quality <= 0.1) {
                 // Convert blob to file
-                const compressedFile = new File([blob], file.name, {
+                const newName = file.name.replace(/\.[^.]+$/, '.jpg');
+                const compressedFile = new File([blob], newName, {
                   type: 'image/jpeg',
                   lastModified: Date.now(),
                 });

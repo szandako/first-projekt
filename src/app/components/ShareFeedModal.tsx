@@ -67,38 +67,38 @@ export const ShareFeedModal: React.FC<ShareFeedModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={handleBackdropClick}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4"
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
+            initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
+            exit={{ scale: 0.95, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-stone-200"
+            className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden border border-stone-200"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-stone-200 bg-stone-50">
-              <div>
-                <h2 className="text-2xl font-semibold text-stone-900">Feed Megosztása</h2>
-                <p className="text-sm text-stone-600 mt-1">{feedName}</p>
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-200 bg-stone-50">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg sm:text-2xl font-semibold text-stone-900 truncate">Feed Megosztása</h2>
+                <p className="text-xs sm:text-sm text-stone-600 mt-0.5 sm:mt-1 truncate">{feedName}</p>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-stone-200 rounded-lg transition-colors"
+                className="p-2 hover:bg-stone-200 rounded-lg transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center flex-shrink-0 ml-2"
               >
                 <X className="w-5 h-5 text-stone-700" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(95vh-200px)] sm:max-h-[calc(90vh-200px)]">
               {/* Share Form */}
               <div className="mb-6">
-                <label className="flex items-center gap-2 text-sm font-medium text-stone-700 mb-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-stone-700 mb-2 sm:mb-3">
                   <UserPlus className="w-4 h-4" />
                   Új felhasználó hozzáadása
                 </label>
-                <form onSubmit={handleShare} className="flex gap-2">
+                <form onSubmit={handleShare} className="flex flex-col sm:flex-row gap-2">
                   <div className="flex-1 relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                     <input
@@ -106,14 +106,14 @@ export const ShareFeedModal: React.FC<ShareFeedModalProps> = ({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="pelda@email.com"
-                      className="w-full pl-10 pr-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all"
+                      className="w-full pl-10 pr-4 py-3 border-2 border-stone-200 rounded-lg focus:border-stone-600 focus:ring-2 focus:ring-stone-200 outline-none transition-all text-base min-h-[48px]"
                       disabled={submitting}
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={!email.trim() || submitting}
-                    className="px-6 py-3 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    className="px-4 sm:px-6 py-3 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium min-h-[48px] text-sm sm:text-base"
                   >
                     {submitting ? 'Megosztás...' : 'Megosztás'}
                   </button>
@@ -145,10 +145,10 @@ export const ShareFeedModal: React.FC<ShareFeedModalProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-stone-200 bg-stone-50">
+            <div className="flex items-center justify-end gap-3 p-4 sm:p-6 border-t border-stone-200 bg-stone-50">
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-all font-medium"
+                className="px-4 sm:px-6 py-2.5 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-all font-medium min-h-[44px] text-sm sm:text-base"
               >
                 Bezárás
               </button>
