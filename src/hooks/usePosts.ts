@@ -155,6 +155,59 @@ export const usePosts = (feedId: string | undefined) => {
     }
   };
 
+  const swapPosts = async (postId1: string, postId2: string) => {
+    const post1 = posts.find((p) => p.id === postId1);
+    const post2 = posts.find((p) => p.id === postId2);
+
+    if (!post1 || !post2) {
+      throw new Error('Posts not found');
+    }
+
+    const pos1 = post1.position;
+    const pos2 = post2.position;
+    const tempPosition = 999999;
+
+    try {
+      // Step 1: Move post1 to temp position
+      const { error: err1 } = await supabase
+        .from('posts')
+        .update({ position: tempPosition, updated_at: new Date().toISOString() })
+        .eq('id', postId1);
+
+      if (err1) throw err1;
+
+      // Step 2: Move post2 to post1's original position
+      const { error: err2 } = await supabase
+        .from('posts')
+        .update({ position: pos1, updated_at: new Date().toISOString() })
+        .eq('id', postId2);
+
+      if (err2) throw err2;
+
+      // Step 3: Move post1 to post2's original position
+      const { error: err3 } = await supabase
+        .from('posts')
+        .update({ position: pos2, updated_at: new Date().toISOString() })
+        .eq('id', postId1);
+
+      if (err3) throw err3;
+
+      // Update local state
+      setPosts((prev) =>
+        prev
+          .map((p) => {
+            if (p.id === postId1) return { ...p, position: pos2 };
+            if (p.id === postId2) return { ...p, position: pos1 };
+            return p;
+          })
+          .sort((a, b) => a.position - b.position)
+      );
+    } catch (err: any) {
+      console.error('Error swapping posts:', err);
+      throw err;
+    }
+  };
+
   return {
     posts,
     loading,
@@ -163,5 +216,6 @@ export const usePosts = (feedId: string | undefined) => {
     updatePost,
     deletePost,
     reorderPosts,
+    swapPosts,
   };
 };

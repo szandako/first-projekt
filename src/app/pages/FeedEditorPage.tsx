@@ -1,40 +1,10 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { MultiBackend, TouchTransition } from 'react-dnd-multi-backend';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { TouchBackend } from 'react-dnd-touch-backend';
 import { useIsMobile } from '../components/ui/use-mobile';
 import { useAuthContext } from '../../context/AuthContext';
 
-// HTML5 és Touch backend konfiguráció
-const HTML5toTouch = {
-  backends: [
-    {
-      id: 'html5',
-      backend: HTML5Backend,
-      transition: TouchTransition,
-    },
-    {
-      id: 'touch',
-      backend: TouchBackend,
-      options: {
-        enableMouseEvents: true,
-        delayTouchStart: 200, // 200ms hosszú nyomás a drag indításához
-      },
-      preview: true,
-      transition: TouchTransition,
-    },
-  ],
-};
-
-// Drag item típus
-const ItemTypes = {
-  POST: 'post',
-};
-
-// DraggablePost komponens
-interface DraggablePostProps {
+// PostCard komponens
+interface PostCardProps {
   post: {
     id: string;
     position: number;
@@ -44,63 +14,46 @@ interface DraggablePostProps {
   thumbnail?: string;
   isSharedFeed: boolean;
   isMobile: boolean;
+  swapMode?: boolean;
+  isSelectedForSwap?: boolean;
+  selectionOrder?: number;
+  gridLabel?: string;
+  commentCount?: number;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-  onSwap: (dragId: string, dropId: string) => void;
 }
 
-const DraggablePost: React.FC<DraggablePostProps> = ({
+const PostCard: React.FC<PostCardProps> = ({
   post,
   thumbnail,
   isSharedFeed,
   isMobile,
+  swapMode = false,
+  isSelectedForSwap = false,
+  selectionOrder,
+  gridLabel,
+  commentCount = 0,
   onEdit,
   onDelete,
-  onSwap,
 }) => {
-  const ref = useRef<HTMLDivElement>(null);
-
-  const [{ isDragging }, drag] = useDrag({
-    type: ItemTypes.POST,
-    item: { id: post.id },
-    canDrag: !isSharedFeed,
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  const [{ isOver, canDrop }, drop] = useDrop({
-    accept: ItemTypes.POST,
-    canDrop: () => !isSharedFeed,
-    drop: (item: { id: string }) => {
-      if (item.id !== post.id) {
-        onSwap(item.id, post.id);
-      }
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
-    }),
-  });
-
-  // Kombináljuk a drag és drop ref-eket
-  drag(drop(ref));
-
   return (
     <div
-      ref={ref}
       className={`aspect-[4/5] bg-stone-100 rounded-sm overflow-hidden relative group cursor-pointer transition-all ${
-        isDragging ? 'opacity-50 scale-95' : ''
-      } ${isOver && canDrop ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
-      onClick={() => !isDragging && onEdit(post.id)}
-      style={{ touchAction: isSharedFeed ? 'auto' : 'none' }}
+        swapMode ? 'hover:ring-2 hover:ring-purple-400' : ''
+      } ${isSelectedForSwap ? 'ring-4 ring-purple-500 ring-offset-2' : ''}`}
+      onClick={() => onEdit(post.id)}
     >
-      {/* Drop indicator overlay */}
-      {isOver && canDrop && (
-        <div className="absolute inset-0 bg-blue-500 bg-opacity-20 border-2 border-blue-500 border-dashed z-10 pointer-events-none flex items-center justify-center">
-          <div className="bg-white px-3 py-2 rounded-lg shadow-lg">
-            <span className="text-sm font-medium text-blue-700">Cseréld ide</span>
-          </div>
+      {/* Grid coordinate label - Top Left */}
+      {gridLabel && !isSelectedForSwap && (
+        <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20 px-1 sm:px-1.5 py-0.5 bg-black bg-opacity-40 text-white text-[9px] sm:text-[10px] font-medium rounded pointer-events-none">
+          {gridLabel}
+        </div>
+      )}
+
+      {/* Selection indicator for swap mode */}
+      {isSelectedForSwap && (
+        <div className="absolute top-2 left-2 z-30 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold shadow-lg">
+          {selectionOrder}
         </div>
       )}
 
@@ -162,6 +115,14 @@ const DraggablePost: React.FC<DraggablePostProps> = ({
             <span className="sm:hidden">⚠ Időzítés</span>
           </div>
         )}
+
+        {/* Comment Status */}
+        {commentCount > 0 && (
+          <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-500 text-white text-[10px] sm:text-xs font-semibold rounded shadow-lg">
+            <span className="hidden sm:inline">💬 {commentCount} komment</span>
+            <span className="sm:hidden">💬 {commentCount}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -173,14 +134,14 @@ import { EditPostModal } from '../components/EditPostModal';
 import { FeedPreviewModal } from '../components/FeedPreviewModal';
 import { ShareFeedModal } from '../components/ShareFeedModal';
 import { PostGridSkeleton } from '../components/Skeleton';
-import { Instagram, Upload, Trash2, PlusCircle, Eye, X, ArrowLeft, Share2 } from 'lucide-react';
+import { Instagram, Upload, Trash2, Eye, X, ArrowLeft, Share2, ArrowLeftRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 function FeedEditorPage() {
   const { id: feedId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthContext();
-  const { posts, loading, createPost, updatePost, deletePost, reorderPosts } = usePosts(feedId);
+  const { posts, loading, createPost, updatePost, deletePost, swapPosts } = usePosts(feedId);
   const isMobile = useIsMobile();
 
   const [editingPost, setEditingPost] = useState<string | null>(null);
@@ -188,8 +149,11 @@ function FeedEditorPage() {
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [postThumbnails, setPostThumbnails] = useState<{ [postId: string]: string }>({});
+  const [postCommentCounts, setPostCommentCounts] = useState<{ [postId: string]: number }>({});
   const [feedName, setFeedName] = useState<string>('');
   const [isSharedFeed, setIsSharedFeed] = useState(false);
+  const [swapMode, setSwapMode] = useState(false);
+  const [selectedForSwap, setSelectedForSwap] = useState<string[]>([]);
 
   // Load feed name and check if shared
   useEffect(() => {
@@ -249,19 +213,44 @@ function FeedEditorPage() {
     loadThumbnails();
   }, [posts]);
 
-  const handleCreateEmptyPost = async () => {
-    try {
-      // Shift all existing posts down by 1 position
-      if (posts.length > 0) {
-        const reordered = posts.map((post, index) => ({
-          ...post,
-          position: index + 1,
-        }));
-        await reorderPosts(reordered);
-      }
+  // Load comment counts for each post
+  useEffect(() => {
+    const loadCommentCounts = async () => {
+      if (!posts || posts.length === 0) return;
 
-      // Create new post at position 0 (beginning)
-      await createPost(0);
+      const postIds = posts.map(p => p.id);
+
+      try {
+        const { data, error } = await supabase
+          .from('comments')
+          .select('post_id')
+          .in('post_id', postIds);
+
+        if (error) throw error;
+
+        // Count comments per post
+        const counts: { [postId: string]: number } = {};
+        (data || []).forEach((comment: { post_id: string }) => {
+          counts[comment.post_id] = (counts[comment.post_id] || 0) + 1;
+        });
+
+        setPostCommentCounts(counts);
+      } catch (err) {
+        console.error('Error loading comment counts:', err);
+      }
+    };
+
+    loadCommentCounts();
+  }, [posts]);
+
+  const handleCreatePostAtTop = async () => {
+    try {
+      // Find the smallest position and create new post with smaller position
+      const minPosition = posts.length > 0
+        ? Math.min(...posts.map(p => p.position))
+        : 0;
+
+      await createPost(minPosition - 1);
       toast.success('Új poszt létrehozva az elején!');
     } catch (error: any) {
       console.error('Error creating post:', error);
@@ -269,39 +258,57 @@ function FeedEditorPage() {
     }
   };
 
-  const handleSwapPosts = useCallback(async (dragId: string, dropId: string) => {
-    console.log(`🔄 Swapping posts: ${dragId} <-> ${dropId}`);
-
-    const dragPost = posts.find((p) => p.id === dragId);
-    const dropPost = posts.find((p) => p.id === dropId);
-
-    if (!dragPost || !dropPost) return;
-
+  const handleCreatePostAtBottom = async () => {
     try {
-      // Swap positions in the array
-      const reordered = [...posts];
-      const dragIndex = reordered.findIndex((p) => p.id === dragId);
-      const dropIndex = reordered.findIndex((p) => p.id === dropId);
+      // Find the largest position and create new post with larger position
+      const maxPosition = posts.length > 0
+        ? Math.max(...posts.map(p => p.position))
+        : -1;
 
-      [reordered[dragIndex], reordered[dropIndex]] = [reordered[dropIndex], reordered[dragIndex]];
-
-      // Update positions
-      const updatedPosts = reordered.map((post, index) => ({
-        ...post,
-        position: index,
-      }));
-
-      await reorderPosts(updatedPosts);
-      toast.success('Posztok felcserélve!');
+      await createPost(maxPosition + 1);
+      toast.success('Új poszt létrehozva a végén!');
     } catch (error: any) {
-      console.error('Error swapping posts:', error);
-      toast.error('Hiba történt a csere során');
+      console.error('Error creating post:', error);
+      toast.error('Hiba történt a poszt létrehozásakor');
     }
-  }, [posts, reorderPosts]);
+  };
 
   const handleEditPost = (id: string) => {
+    if (swapMode) {
+      // Csere módban: kijelölés kezelése
+      handleSelectForSwap(id);
+      return;
+    }
     setEditingPost(id);
     setModalOpen(true);
+  };
+
+  const handleSelectForSwap = async (postId: string) => {
+    if (selectedForSwap.includes(postId)) {
+      // Ha már ki van jelölve, töröljük
+      setSelectedForSwap((prev) => prev.filter((id) => id !== postId));
+    } else if (selectedForSwap.length < 2) {
+      const newSelection = [...selectedForSwap, postId];
+      setSelectedForSwap(newSelection);
+
+      // Ha 2 poszt ki van jelölve, cseréljük őket
+      if (newSelection.length === 2) {
+        try {
+          await swapPosts(newSelection[0], newSelection[1]);
+          toast.success('Posztok felcserélve!');
+        } catch (error: any) {
+          console.error('Error swapping posts:', error);
+          toast.error('Hiba történt a csere során');
+        }
+        // Kijelölések törlése, de maradunk csere módban
+        setSelectedForSwap([]);
+      }
+    }
+  };
+
+  const toggleSwapMode = () => {
+    setSwapMode((prev) => !prev);
+    setSelectedForSwap([]);
   };
 
   const handleDeletePost = async (id: string) => {
@@ -334,8 +341,7 @@ function FeedEditorPage() {
   const filledCount = posts.length;
 
   return (
-    <DndProvider backend={MultiBackend} options={HTML5toTouch}>
-      <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-stone-50">
         {/* Header */}
         <header className="bg-white border-b border-stone-200 sticky top-0 z-40 shadow-sm">
           <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 lg:px-8">
@@ -420,33 +426,82 @@ function FeedEditorPage() {
             ) : (
               <ul className="space-y-1.5 sm:space-y-2 text-sm sm:text-base text-stone-700">
                 <li>
-                  <strong>1.</strong> {isMobile ? 'Koppints' : 'Kattints'} egy poszthoz képek hozzáadásához
+                  <strong>1.</strong> {isMobile ? 'Koppints' : 'Kattints'} egy posztra képek hozzáadásához
                 </li>
                 <li>
-                  <strong>2.</strong> Állítsd be a caption-t és az időzítést
+                  <strong>2.</strong> Add meg a leírást és az időzítést
                 </li>
                 <li>
-                  <strong>3.</strong> {isMobile ? 'Tartsd lenyomva (~0.2 mp), majd húzd' : 'Húzd'} a posztokat a sorrend módosításához
+                  <strong>3.</strong> A „Posztok cseréje" gombbal felcserélheted két poszt helyét
                 </li>
               </ul>
             )}
           </div>
 
-          {/* Add Post & Preview Buttons */}
-          <div className="mb-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-3">
-            {!isSharedFeed && (
+          {/* Swap Mode Banner */}
+          {swapMode && (
+            <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ArrowLeftRight className="w-5 h-5 text-purple-600" />
+                <div>
+                  <p className="font-medium text-purple-900">Csere mód aktív</p>
+                  <p className="text-sm text-purple-700">
+                    {selectedForSwap.length === 0
+                      ? 'Válaszd ki az első posztot'
+                      : selectedForSwap.length === 1
+                      ? 'Válaszd ki a második posztot'
+                      : 'Csere folyamatban...'}
+                  </p>
+                </div>
+              </div>
               <button
-                onClick={handleCreateEmptyPost}
+                onClick={toggleSwapMode}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Mégse
+              </button>
+            </div>
+          )}
+
+          {/* Add Post & Preview Buttons */}
+          <div className="mb-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 flex-wrap">
+            {!isSharedFeed && !swapMode && (
+              <button
+                onClick={handleCreatePostAtTop}
                 className="px-4 sm:px-6 py-3 bg-white border-2 border-dashed border-stone-300 hover:border-stone-500 hover:bg-stone-50 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 sm:gap-3 group min-h-[48px]"
               >
-                <PlusCircle className="w-5 h-5 text-stone-400 group-hover:text-stone-700 transition-colors" />
+                <ArrowUp className="w-5 h-5 text-stone-400 group-hover:text-stone-700 transition-colors" />
                 <span className="font-medium text-stone-600 group-hover:text-stone-900 transition-colors text-sm sm:text-base">
-                  Új poszt hozzáadása
+                  Új poszt felülre
                 </span>
               </button>
             )}
 
-            {filledCount > 0 && (
+            {!isSharedFeed && !swapMode && (
+              <button
+                onClick={handleCreatePostAtBottom}
+                className="px-4 sm:px-6 py-3 bg-white border-2 border-dashed border-stone-300 hover:border-stone-500 hover:bg-stone-50 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 sm:gap-3 group min-h-[48px]"
+              >
+                <ArrowDown className="w-5 h-5 text-stone-400 group-hover:text-stone-700 transition-colors" />
+                <span className="font-medium text-stone-600 group-hover:text-stone-900 transition-colors text-sm sm:text-base">
+                  Új poszt alulra
+                </span>
+              </button>
+            )}
+
+            {!isSharedFeed && filledCount >= 2 && !swapMode && (
+              <button
+                onClick={toggleSwapMode}
+                className="px-4 sm:px-6 py-3 bg-purple-100 border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 sm:gap-3 group min-h-[48px]"
+              >
+                <ArrowLeftRight className="w-5 h-5 text-purple-500 group-hover:text-purple-700 transition-colors" />
+                <span className="font-medium text-purple-600 group-hover:text-purple-900 transition-colors text-sm sm:text-base">
+                  Posztok cseréje
+                </span>
+              </button>
+            )}
+
+            {filledCount > 0 && !swapMode && (
               <button
                 onClick={() => setPreviewModalOpen(true)}
                 className="px-4 sm:px-6 py-3 bg-gradient-to-r from-stone-700 to-stone-800 text-white rounded-lg hover:from-stone-800 hover:to-stone-900 transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 sm:gap-3 group min-h-[48px]"
@@ -467,7 +522,7 @@ function FeedEditorPage() {
               </p>
               {!isSharedFeed && (
                 <button
-                  onClick={handleCreateEmptyPost}
+                  onClick={handleCreatePostAtTop}
                   className="text-stone-800 font-semibold hover:underline"
                 >
                   Hozz létre egyet most!
@@ -475,18 +530,46 @@ function FeedEditorPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-0.5 mb-16">
-              {posts.map((post) => (
-                <DraggablePost
-                  key={post.id}
-                  post={post}
-                  thumbnail={postThumbnails[post.id]}
-                  isSharedFeed={isSharedFeed}
-                  isMobile={isMobile}
-                  onEdit={handleEditPost}
-                  onDelete={handleDeletePost}
-                  onSwap={handleSwapPosts}
-                />
+            <div className="mb-16">
+              {/* Column headers (A, B, C) */}
+              <div className="flex">
+                <div className="w-8 sm:w-10 flex-shrink-0" /> {/* Spacer for row numbers */}
+                <div className="flex-1 grid grid-cols-3 gap-0.5 mb-1">
+                  {['A', 'B', 'C'].map((col) => (
+                    <div key={col} className="text-center text-sm sm:text-base font-semibold text-stone-500">
+                      {col}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grid with row numbers */}
+              {Array.from({ length: Math.ceil(posts.length / 3) }).map((_, rowIndex) => (
+                <div key={rowIndex} className="flex">
+                  {/* Row number */}
+                  <div className="w-8 sm:w-10 flex-shrink-0 flex items-center justify-center text-sm sm:text-base font-semibold text-stone-500">
+                    {rowIndex + 1}
+                  </div>
+                  {/* Posts in this row */}
+                  <div className="flex-1 grid grid-cols-3 gap-0.5 mb-0.5">
+                    {posts.slice(rowIndex * 3, rowIndex * 3 + 3).map((post, colIndex) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        thumbnail={postThumbnails[post.id]}
+                        isSharedFeed={isSharedFeed}
+                        isMobile={isMobile}
+                        swapMode={swapMode}
+                        isSelectedForSwap={selectedForSwap.includes(post.id)}
+                        selectionOrder={selectedForSwap.indexOf(post.id) + 1 || undefined}
+                        onEdit={handleEditPost}
+                        onDelete={handleDeletePost}
+                        gridLabel={`${['A', 'B', 'C'][colIndex]}${rowIndex + 1}`}
+                        commentCount={postCommentCounts[post.id] || 0}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -541,7 +624,6 @@ function FeedEditorPage() {
           feedName={feedName}
         />
       </div>
-    </DndProvider>
   );
 }
 

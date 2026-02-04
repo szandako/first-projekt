@@ -394,11 +394,11 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                       </div>
 
                       {loading ? (
-                        <div className="rounded-lg border-2 border-stone-200 flex items-center justify-center aspect-square">
+                        <div className="rounded-lg border-2 border-stone-200 flex items-center justify-center" style={{ aspectRatio: '4/5' }}>
                           <p className="text-stone-500">Betöltés...</p>
                         </div>
                       ) : images.length === 0 ? (
-                        <div className="rounded-lg border-2 border-dashed border-stone-300 flex items-center justify-center bg-stone-50 aspect-square">
+                        <div className="rounded-lg border-2 border-dashed border-stone-300 flex items-center justify-center bg-stone-50" style={{ aspectRatio: '4/5' }}>
                           <div className="text-center p-6">
                             <Upload className="w-16 h-16 mx-auto mb-4 text-stone-400" />
                             <p className="text-stone-600">
@@ -408,7 +408,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
                         </div>
                       ) : (
                         <div className="relative">
-                          <div className="rounded-lg overflow-hidden border-2 border-stone-200 aspect-square">
+                          <div className="rounded-lg overflow-hidden border-2 border-stone-200" style={{ aspectRatio: '4/5' }}>
                             <img
                               src={images[currentImageIndex]?.url}
                               alt={`Image ${currentImageIndex + 1}`}
